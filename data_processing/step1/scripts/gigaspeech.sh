@@ -1,0 +1,12 @@
+python build_gigaspeech_webdataset.py \
+  --gigaspeech-dir $1 \
+  --output-dir $2 \
+  --tokenizer $3 \
+  --mimi-ckpt $4 \
+  --num-codebooks $5 \
+  --size $6 \
+  --task mixed \
+  --asr-ratio 0.5 \
+  --num-workers $7 \
+  --worker-id $8 \
+  --maxcount 10000

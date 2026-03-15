@@ -1,5 +1,3 @@
-# Step 1: Data Processing
-
 This folder contains the data processing code for the **first step** of the training pipeline.  
 Its purpose is to convert raw speech datasets into a unified **WebDataset** format that can later be used for training models with **speech tokens** and **text tokens**.
 
