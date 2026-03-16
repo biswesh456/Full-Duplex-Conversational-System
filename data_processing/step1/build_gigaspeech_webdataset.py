@@ -201,7 +201,7 @@ def process_gigaspeech(
     num_tts_written = 0
 
     for audio_idx, audio_entry in enumerate(
-        tqdm(iter_gigaspeech_audios_stream(metadata_json), total = 38131)
+        tqdm(iter_gigaspeech_audios_stream(metadata_json))
     ):
         num_audio_streamed += 1
 
@@ -239,14 +239,6 @@ def process_gigaspeech(
 
         if dry_run_only_check:
             continue
-
-        # try:
-        #     full_wav, sr = load_audio_full(wav_path)
-        # except Exception as e:
-        #     num_audio_missing += 1
-        #     num_segments_missing_audio += len(selected_segments)
-        #     print(f"[WARN] could not read wav for aid={aid} path={wav_path}: {e}")
-        #     continue
 
         for seg in selected_segments:
             try:
