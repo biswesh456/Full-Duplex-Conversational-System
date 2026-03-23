@@ -5,9 +5,8 @@ python build_commonvoice_22_webdataset.py \
   --mimi-ckpt $4 \
   --task mixed \
   --asr-ratio 0.5 \
-  --split train \
   --num-codebooks $5 \
   --num-workers $6 \
   --worker-id $7 \
-  --maxcount 10000 \
-  --dry-run-only-check
+  --split $8 \
+  --maxcount 10000

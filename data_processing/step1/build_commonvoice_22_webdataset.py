@@ -97,22 +97,27 @@ def get_path_field(row: dict) -> str:
 def resolve_audio_path(audio_root: Path, relpath: str) -> Path:
     rel = Path(relpath)
 
-    # most likely case: metadata says .mp3, local directory contains .wav
-    wav_candidate = audio_root / rel.with_suffix(".wav").name
+    # preserve subdirectories, only swap suffix
+    wav_candidate = audio_root / rel.with_suffix(".wav")
     if wav_candidate.exists():
         return wav_candidate
 
-    # maybe already wav or exact filename exists
-    direct_candidate = audio_root / rel.name
+    # maybe exact file exists as given
+    direct_candidate = audio_root / rel
     if direct_candidate.exists():
         return direct_candidate
 
-    # fallback if relpath has subdirs
-    fallback = audio_root / rel
-    if fallback.exists():
-        return fallback
+    # fallback: try filename only
+    flat_wav_candidate = audio_root / rel.with_suffix(".wav").name
+    if flat_wav_candidate.exists():
+        return flat_wav_candidate
+
+    flat_direct_candidate = audio_root / rel.name
+    if flat_direct_candidate.exists():
+        return flat_direct_candidate
 
     return wav_candidate
+
 
 def count_tsv_rows(tsv_path: Path) -> int:
     with open(tsv_path, "r", encoding="utf-8") as f:
@@ -310,7 +315,7 @@ def main():
     parser.add_argument(
         "--split",
         type=str,
-        choices=["train", "dev", "test", "validated"],
+        choices=["train", "dev", "test"],
         default="train",
     )
     parser.add_argument("--min-duration", type=float, default=0.2)
@@ -367,7 +372,7 @@ def main():
     process_commonvoice(
         tsv_path=tsv_path,
         audio_root=audio_root,
-        out_dir=args.output_dir / args.split,
+        out_dir=args.output_dir,
         tokenizer=tokenizer,
         mimi=mimi,
         device=args.device,
