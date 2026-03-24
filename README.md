@@ -25,11 +25,6 @@ python -m python training.step1.inspect_packed_shard \
   --device cuda \
   --out-dir path/to/output/directory
 ```
-Finally, to train the model for step 1, run this -
-```bash
-python -m training.step1.train \
-  --config training/step1/configs/train.yaml
-```
 
 For step 2, run the following for preprocessing
 ```bash
@@ -40,3 +35,11 @@ For step 3, run the following for preprocessing
 ```
 
 ## Training
+
+Run all the files from the root directory. Refer to the readme of each sub-directory for more information.
+
+For step 1, run the following for training -
+```bash
+python -m training.step1.train \
+  --config training/step1/configs/train.yaml
+```
