@@ -1,5 +1,5 @@
 tokenizer_name: /lustre/fsmisc/dataset/HuggingFace_Models/Qwen/Qwen3-8B
-num_codebooks: 4
+num_codebooks: 2
 speech_codebook_size: 2048
 trust_remote_code: false
 
@@ -68,6 +68,3 @@ datasets:
   #   split: test
   #   urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/ultrachat_200k/webdataset/test
   #   output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/ultrachat_200k/test
-
-
-  

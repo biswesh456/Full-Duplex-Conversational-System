@@ -12,4 +12,7 @@
 #     "answer": "<|answer|>",
 # }
 
-TEXT_SPECIAL_TOKENS = {}
+TEXT_SPECIAL_TOKENS = {
+    "<speaker0>": "<|s0|>",
+    "<speaker1>": "<|s1|>",
+}
