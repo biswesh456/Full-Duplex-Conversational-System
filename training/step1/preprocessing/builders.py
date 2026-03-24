@@ -1,4 +1,5 @@
 import numpy as np
+import uuid
 
 from training.step1.preprocessing.schema import PackedSample, RawSample
 from tokenization.multimodal_tokenizer import MultimodalTokenizer
@@ -44,6 +45,39 @@ class SequenceBuilder:
                 add_generation_prompt=False,
             )
         )
+
+    def _chat_user_content_wrapper_ids(
+        self,
+        system_text: str,
+    ) -> tuple[list[int], list[int]]:
+        """
+        Returns:
+        before_user_content_ids, after_user_content_ids
+
+        This lets us insert speech tokens inside the user turn, before <|im_end|>.
+        """
+        hf_tok = self.mm_tokenizer.hf_tokenizer
+
+        placeholder = f"__USER_CONTENT_PLACEHOLDER_{uuid.uuid4().hex}__"
+
+        rendered = hf_tok.apply_chat_template(
+            [
+                {"role": "system", "content": system_text},
+                {"role": "user", "content": placeholder},
+            ],
+            tokenize=False,
+            add_generation_prompt=False,
+        )
+
+        if placeholder not in rendered:
+            raise ValueError("Could not find placeholder in rendered chat template")
+
+        before_text, after_text = rendered.split(placeholder, 1)
+
+        before_ids = hf_tok.encode(before_text, add_special_tokens=False)
+        after_ids = hf_tok.encode(after_text, add_special_tokens=False)
+
+        return before_ids, after_ids
 
     def _assistant_prefix_ids(self) -> list[int]:
         hf_tok = self.mm_tokenizer.hf_tokenizer
@@ -118,9 +152,11 @@ class SequenceBuilder:
             target_text = self._require_text(sample.target_text, "target_text", sample.task)
 
             system_text = "<text> Transcribe the speech into text."
-            user_text = "<speech> "
-            chat_prefix_ids = self._chat_prefix_ids(system_text=system_text, user_text=user_text)
+            user_before_ids, user_after_ids = self._chat_user_content_wrapper_ids(system_text=system_text)
+            chat_prefix_ids = user_before_ids + self.mm_tokenizer.text_ids("<speech> ")
+
             prompt_ids_suffix = self._speech_segment(input_speech)
+            prompt_ids_suffix += user_after_ids
             prompt_ids_suffix += self.assistant_prefix_ids
             prompt_ids = chat_prefix_ids + prompt_ids_suffix
 
@@ -143,9 +179,11 @@ class SequenceBuilder:
             target_text = self._require_text(sample.target_text, "target_text", sample.task)
 
             system_text = "<text> Translate the speech from English to German in text."
-            user_text = "<speech> "
-            chat_prefix_ids = self._chat_prefix_ids(system_text=system_text, user_text=user_text)
+            user_before_ids, user_after_ids = self._chat_user_content_wrapper_ids(system_text=system_text)
+
+            chat_prefix_ids = user_before_ids + self.mm_tokenizer.text_ids("<speech> ") 
             prompt_ids_suffix = self._speech_segment(input_speech)
+            prompt_ids_suffix += user_after_ids
             prompt_ids_suffix += self.assistant_prefix_ids
             prompt_ids = chat_prefix_ids + prompt_ids_suffix
 
@@ -157,10 +195,12 @@ class SequenceBuilder:
             target_text = self._require_text(sample.target_text, "target_text", sample.task)
 
             system_text = "<text> Answer the question using the spoken passage."
-            user_text = f"<speech> "
-            chat_prefix_ids = self._chat_prefix_ids(system_text=system_text, user_text=user_text)
+            user_before_ids, user_after_ids = self._chat_user_content_wrapper_ids(system_text=system_text)
+
+            chat_prefix_ids = user_before_ids + self.mm_tokenizer.text_ids("<speech> ")
             prompt_ids_suffix = self._speech_segment(input_speech)
             prompt_ids_suffix += self.mm_tokenizer.text_ids(f"<text> {question_text}")
+            prompt_ids_suffix += user_after_ids
             prompt_ids_suffix += self.assistant_prefix_ids
             prompt_ids = chat_prefix_ids + prompt_ids_suffix
 

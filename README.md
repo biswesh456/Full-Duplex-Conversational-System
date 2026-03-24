@@ -8,13 +8,27 @@ The directory contains three sub-directories for each steps. Please refer to the
 ## Preprocessing
 Run all the files from the root directory. Refer to the readme of each sub-directory for more information.
 
-For step 1, run the following for preprocessing
+For step 1, run the following for preprocessing -
 ```bash
 python -m training.step1.preprocess \
-  --config training/step1/configs/data_mix.yaml
-
-torchrun --nproc_per_node=8 training.step1.train \
-  --config training/step1/configs/train_qwen3_8b.yaml
+  --config training/step1/configs/preprocessing.yaml
+```
+To inspect whether the preprocessed data is correctly stored run this -
+```bash
+python -m python training.step1.inspect_packed_shard \
+  --tar path/to/tar/file \
+  --sample-index 0 \
+  --tokenizer path/to/tokenizer \
+  --mimi-ckpt path/to/mimi \
+  --num-codebooks 4 \
+  --speech-codebook-size 2048 \
+  --device cuda \
+  --out-dir path/to/output/directory
+```
+Finally, to train the model for step 1, run this -
+```bash
+python -m training.step1.train \
+  --config training/step1/configs/train.yaml
 ```
 
 For step 2, run the following for preprocessing

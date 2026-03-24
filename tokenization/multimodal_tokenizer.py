@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Iterable, Sequence
+from typing import Any, Iterable, Sequence
 import numpy as np
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
@@ -74,6 +74,11 @@ class MultimodalTokenizer:
     def text_ids(self, text: str) -> list[int]:
         return self.tokenizer.encode(text, add_special_tokens=False)
 
+    def decode_text_ids(self, ids: Sequence[int]) -> str:
+        if not ids:
+            return ""
+        return self.tokenizer.decode(list(ids), skip_special_tokens=False)
+
     def speech_ids(self, codes: np.ndarray | Sequence[Sequence[int]]) -> list[int]:
         arr = np.asarray(codes)
         if arr.ndim != 2:
@@ -94,6 +99,96 @@ class MultimodalTokenizer:
                     self.speech_offset + codebook_idx * self.speech_codebook_size + code
                 )
         return out
+
+    def speech_ids_to_codes(self, speech_ids: Sequence[int]) -> np.ndarray:
+        """
+        Inverse of speech_ids().
+
+        Input:
+          flattened speech token ids of length T * K
+
+        Output:
+          np.ndarray of shape [K, T]
+        """
+        speech_ids = list(speech_ids)
+
+        if len(speech_ids) % self.num_codebooks != 0:
+            raise ValueError(
+                f"Speech span length {len(speech_ids)} is not divisible by "
+                f"num_codebooks={self.num_codebooks}"
+            )
+
+        num_frames = len(speech_ids) // self.num_codebooks
+        codes = np.zeros((self.num_codebooks, num_frames), dtype=np.int64)
+
+        idx = 0
+        for frame_idx in range(num_frames):
+            for codebook_idx in range(self.num_codebooks):
+                token_id = int(speech_ids[idx])
+                rel = token_id - self.speech_offset
+
+                if rel < 0 or rel >= self.speech_vocab_size_total:
+                    raise ValueError(
+                        f"Speech token id {token_id} out of range for speech vocabulary"
+                    )
+
+                recovered_codebook_idx = rel // self.speech_codebook_size
+                code = rel % self.speech_codebook_size
+
+                if recovered_codebook_idx != codebook_idx:
+                    raise ValueError(
+                        f"Unexpected speech ordering: expected codebook {codebook_idx}, "
+                        f"got {recovered_codebook_idx}"
+                    )
+
+                codes[codebook_idx, frame_idx] = code
+                idx += 1
+
+        return codes
+
+    def is_speech_token(self, token_id: int) -> bool:
+        return self.speech_offset <= token_id < (
+            self.speech_offset + self.speech_vocab_size_total
+        )
+
+    def split_modalities(self, ids: Sequence[int]) -> list[dict[str, Any]]:
+        """
+        Split a mixed multimodal sequence into contiguous text/speech segments.
+        """
+        ids = list(ids)
+        if not ids:
+            return []
+
+        def kind(x: int) -> str:
+            return "speech" if self.is_speech_token(x) else "text"
+
+        segments: list[dict[str, Any]] = []
+        start = 0
+        current_kind = kind(ids[0])
+
+        for i in range(1, len(ids)):
+            k = kind(ids[i])
+            if k != current_kind:
+                segments.append(
+                    {
+                        "type": current_kind,
+                        "start": start,
+                        "end": i,
+                        "ids": ids[start:i],
+                    }
+                )
+                start = i
+                current_kind = k
+
+        segments.append(
+            {
+                "type": current_kind,
+                "start": start,
+                "end": len(ids),
+                "ids": ids[start:],
+            }
+        )
+        return segments
 
     def special_id(self, name: str) -> int:
         return self.extra_special_ids[name]
