@@ -1,12 +1,10 @@
 from contextlib import nullcontext
-from typing import Any
 
 import torch
-import torch.nn.functional as F
 from lightning.fabric import Fabric
 
-from training.step1.utils.checkpointing import save_checkpoint
-from training.step1.utils.logging import print_rank_zero
+from training.utils.checkpointing import save_checkpoint
+from training.utils.logging import print_rank_zero
 
 
 @torch.no_grad()
@@ -63,12 +61,18 @@ def train(
     ckpt_dir: str,
     max_val_batches: int,
     start_step: int = 0,
+    get_curriculum_stage_fn=None,
+    rebuild_train_loader_fn=None,
 ) -> None:
     model.train()
     optimizer.zero_grad(set_to_none=True)
 
     train_iter = iter(train_loader)
     step = start_step
+
+    current_stage = None
+    if get_curriculum_stage_fn is not None:
+        current_stage = get_curriculum_stage_fn(start_step)
 
     while step < max_steps:
         loss_accum = 0.0
@@ -105,6 +109,21 @@ def train(
         optimizer.zero_grad(set_to_none=True)
 
         step += 1
+
+        if (
+            get_curriculum_stage_fn is not None
+            and rebuild_train_loader_fn is not None
+        ):
+            new_stage = get_curriculum_stage_fn(step)
+            if new_stage != current_stage:
+                print_rank_zero(
+                    fabric,
+                    f"[step {step}] curriculum stage changed: {current_stage} -> {new_stage}. Rebuilding train loader.",
+                    flush=True,
+                )
+                train_loader = rebuild_train_loader_fn(step)
+                train_iter = iter(train_loader)
+                current_stage = new_stage
 
         if step % log_every_n_steps == 0:
             lr = optimizer.param_groups[0]["lr"]

@@ -123,7 +123,7 @@ class MixedTrainDataset(IterableDataset):
         self.sample_shuffle = sample_shuffle
 
     def __iter__(self) -> Iterator[dict[str, Any]]:
-        rng = random.Random(self.seed + torch.initial_seed())
+        rng = random.Random(self.seed + torch.initial_seed()) # torch.initial_seed() is for different workers to have their own random streams.
 
         iterators = [
             build_wds_pipeline(
@@ -137,10 +137,11 @@ class MixedTrainDataset(IterableDataset):
         weights = [spec.weight for spec in self.specs]
 
         while True:
+            # Iteratively decide based on weights which dataset to choose.
             ds_idx = rng.choices(range(len(iterators)), weights=weights, k=1)[0]
             try:
                 sample = next(iterators[ds_idx])
-            except StopIteration:
+            except StopIteration: # This handles the case where that iterator is exhausted
                 iterators[ds_idx] = build_wds_pipeline(
                     urls=self.specs[ds_idx].urls,
                     train=True,

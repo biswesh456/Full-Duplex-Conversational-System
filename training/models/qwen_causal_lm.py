@@ -7,18 +7,20 @@ from transformers import AutoConfig, AutoModelForCausalLM
 def initialize_new_embeddings(
     weight: torch.Tensor,
     old_vocab_size: int,
-    init_std: float = 0.02,
+    scale_factor: float = 1,
 ) -> None:
     if old_vocab_size >= weight.shape[0]:
         return
 
     with torch.no_grad():
-        old_mean = weight[:old_vocab_size].mean(dim=0, keepdim=True)
+        old_mean = weight[:old_vocab_size].mean(dim=0, keepdim=True) # Does it for each dimension
         old_std = weight[:old_vocab_size].std(dim=0, keepdim=True)
         new_rows = weight[old_vocab_size:]
 
-        noise = torch.randn_like(new_rows) * init_std
-        new_rows.copy_(old_mean + noise * old_std.clamp_min(1e-6))
+        # randn_like gives normal distribution with mean 0 and variance 1
+        noise = torch.randn_like(new_rows)
+        # To avoid multiplying by zero or something extremely tiny if one dimension has near-zero standard deviation, we clamp it. We can further provide a scaling factor to reduce the deviation further.
+        new_rows.copy_(old_mean + noise * old_std.clamp_min(1e-6) * scale_factor) 
 
 
 def resize_model_for_speech_tokens(
@@ -58,9 +60,7 @@ def build_qwen_causal_lm(model_cfg: dict[str, Any]):
     else:
         raise ValueError(f"Unsupported torch_dtype: {torch_dtype_name}")
 
-    num_codebooks = int(model_cfg["num_codebooks"])
-    speech_codebook_size = int(model_cfg["speech_codebook_size"])
-    full_vocab_size = int(model_cfg["text_vocab_size"]) + num_codebooks * speech_codebook_size
+    full_vocab_size = int(model_cfg["full_vocab_size"])
 
     config = AutoConfig.from_pretrained(
         pretrained_name_or_path,

@@ -3,13 +3,13 @@ seed: 42
 
 model:
   pretrained_name_or_path: /lustre/fsmisc/dataset/HuggingFace_Models/Qwen/Qwen3-8B
-  trust_remote_code: false
+  trust_remote_code: False
   attn_implementation: flash_attention_2
-  torch_dtype: bfloat16
+  torch_dtype: bfloat16 # change in fabric as well
   num_codebooks: 4
   speech_codebook_size: 2048
   pad_to_multiple_of: 8
-  gradient_checkpointing: true
+  gradient_checkpointing: True
 
 training:
   max_steps: 200000
@@ -24,7 +24,7 @@ training:
   max_val_batches: 200
   num_workers: 4
   prefetch_factor: 2
-  pin_memory: true
+  pin_memory: True
 
 optimizer:
   lr: 1.0e-5
@@ -40,44 +40,51 @@ scheduler:
 fabric:
   accelerator: cuda
   precision: bf16-mixed
-  devices: 8
-  num_nodes: 1
-  strategy: fsdp
+  strategy: fsdp  # Only supports fsdp right now
   fsdp_sharding_strategy: FULL_SHARD
   fsdp_state_dict_type: sharded
-  fsdp_limit_all_gathers: true
-  fsdp_cpu_offload: false
-  fsdp_use_orig_params: true
+  fsdp_limit_all_gathers: True
+  fsdp_cpu_offload: False
+  fsdp_use_orig_params: True
   fsdp_min_num_params: 10000000
 
 logging:
-  log_dir: /lustre/fsn1/projects/rech/bgp/ucm29gh/logs/step1
+  tensor_board_dir: /lustre/fsn1/projects/rech/bgp/ucm29gh/logs/step1
   ckpt_dir: /lustre/fsn1/projects/rech/bgp/ucm29gh/checkpoints/step1
+
+curriculum:
+  enabled: true
+  update_every_steps: 5000
 
 data:
   train_mix:
     - name: gigaspeech
-      weight: 0.35
+      start_weight: 0.35
+      end_weight: 0.3
       urls:
         - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/gigaspeech/train
 
     - name: commonvoice
-      weight: 0.20
+      start_weight: 0.25
+      end_weight: 0.15
       urls:
         - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/commonvoice/train
 
     - name: covost2
-      weight: 0.15
+      start_weight: 0.0
+      end_weight: 0.2
       urls:
         - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/covost2/train
 
     - name: spoken_squad
-      weight: 0.10
+      start_weight: 0.0
+      end_weight: 0.25
       urls:
         - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/spoken_squad/train
 
     - name: ultrachat_200k
-      weight: 0.20
+      start_weight: 0.4
+      end_weight: 0.1
       urls:
         - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/ultrachat_200k/train
 

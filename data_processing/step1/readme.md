@@ -27,4 +27,4 @@ bash script/commonvoice_22.sh
 bash script/ultrachat_200k.sh
 ```
 
-While these codes convert the data into the input and output tokens, they still need to be preprocessed by mixing the chat template embeddings of the LLM, instructions(although we have included a default instruction but it can be later changed as well), various masks etc. This preprocessing happens in the `preprocess.py` file of the training directory.
+While these codes convert the data into the input and output tokens, they still need to be preprocessed by mixing the chat template embeddings of the LLM, instructions(although we have included a default instruction but it can be later changed as well), various masks etc. This preprocessing for final training happens in the `preprocess.py` file of the training directory.

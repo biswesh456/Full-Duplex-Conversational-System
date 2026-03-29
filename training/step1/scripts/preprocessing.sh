@@ -1,0 +1,6 @@
+# Change this based on the way how the job is run.
+# This helps move to the root directory
+cd "$SLURM_SUBMIT_DIR/../../../"
+
+python -m training.step1.preprocess \
+  --config training/step1/configs/preprocessing.yaml

@@ -1,5 +1,5 @@
 tokenizer_name: /lustre/fsmisc/dataset/HuggingFace_Models/Qwen/Qwen3-8B
-num_codebooks: 2
+num_codebooks: 8
 speech_codebook_size: 2048
 trust_remote_code: false
 

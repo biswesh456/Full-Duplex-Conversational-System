@@ -1,6 +1,8 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
+from pathlib import Path
+import json
 import numpy as np
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
@@ -23,11 +25,13 @@ class MultimodalTokenizer:
         tokenizer: PreTrainedTokenizerBase,
         num_codebooks: int,
         speech_codebook_size: int,
+        base_model: str | None = None,
     ) -> None:
 
         self.tokenizer = tokenizer
         self.num_codebooks = num_codebooks
         self.speech_codebook_size = speech_codebook_size
+        self.base_model = base_model
 
         extra = list(TEXT_SPECIAL_TOKENS.values())
         if len(extra) > 0:
@@ -69,7 +73,96 @@ class MultimodalTokenizer:
             tokenizer=tokenizer,
             num_codebooks=num_codebooks,
             speech_codebook_size=speech_codebook_size,
+            base_model=pretrained_name_or_path,
         )
+    
+    @classmethod
+    def from_config(
+        cls,
+        config_or_path: dict[str, Any] | str | Path,
+        use_fast: bool = True,
+        trust_remote_code: bool = False,
+        validate: bool = True,
+    ) -> MultimodalTokenizer:
+        if isinstance(config_or_path, (str, Path)):
+            with open(config_or_path, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+        else:
+            cfg = dict(config_or_path)
+
+        mm_tokenizer = cls.from_pretrained(
+            pretrained_name_or_path=cfg["base_model"],
+            num_codebooks=int(cfg["num_codebooks"]),
+            speech_codebook_size=int(cfg["speech_codebook_size"]),
+            use_fast=use_fast,
+            trust_remote_code=trust_remote_code,
+        )
+
+        if validate:
+            mm_tokenizer.validate_against_config(cfg)
+
+        return mm_tokenizer
+
+    def to_config_dict(self) -> dict[str, Any]:
+        return {
+            "base_model": self.base_model,
+            "text_vocab_size": self.ranges.text_vocab_size,
+            "speech_offset": self.ranges.speech_offset,
+            "speech_vocab_size_total": self.ranges.speech_vocab_size_total,
+            "full_vocab_size": self.ranges.full_vocab_size,
+            "num_codebooks": self.num_codebooks,
+            "speech_codebook_size": self.speech_codebook_size,
+            "extra_special_ids": self.ranges.extra_special_ids,
+        }
+
+    def validate_against_config(self, cfg: dict[str, Any]) -> None:
+        expected = {
+            "text_vocab_size": int(cfg["text_vocab_size"]),
+            "speech_offset": int(cfg["speech_offset"]),
+            "speech_vocab_size_total": int(cfg["speech_vocab_size_total"]),
+            "full_vocab_size": int(cfg["full_vocab_size"]),
+            "num_codebooks": int(cfg["num_codebooks"]),
+            "speech_codebook_size": int(cfg["speech_codebook_size"]),
+        }
+
+        actual = {
+            "text_vocab_size": int(self.ranges.text_vocab_size),
+            "speech_offset": int(self.ranges.speech_offset),
+            "speech_vocab_size_total": int(self.ranges.speech_vocab_size_total),
+            "full_vocab_size": int(self.ranges.full_vocab_size),
+            "num_codebooks": int(self.num_codebooks),
+            "speech_codebook_size": int(self.speech_codebook_size),
+        }
+
+        for key, expected_value in expected.items():
+            actual_value = actual[key]
+            if actual_value != expected_value:
+                raise ValueError(
+                    f"Tokenizer config mismatch for {key}: "
+                    f"expected {expected_value}, got {actual_value}"
+                )
+
+        expected_special_ids = cfg.get("extra_special_ids", {})
+
+        if set(expected_special_ids.keys()) != set(self.ranges.extra_special_ids.keys()):
+            raise ValueError(
+                "Tokenizer config mismatch for special token names: "
+                f"expected {sorted(expected_special_ids.keys())}, "
+                f"got {sorted(self.ranges.extra_special_ids.keys())}"
+            )
+
+        for token_name, expected_id in expected_special_ids.items():
+            actual_id = self.ranges.extra_special_ids.get(token_name)
+            if actual_id != expected_id:
+                raise ValueError(
+                    f"Tokenizer config mismatch for special token {token_name}: "
+                    f"expected {expected_id}, got {actual_id}"
+                )
+    
+    def save_config(self, path: str | Path) -> None:
+        path = Path(path)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.to_config_dict(), f, indent=2, ensure_ascii=False)
 
     def text_ids(self, text: str) -> list[int]:
         return self.tokenizer.encode(text, add_special_tokens=False)

@@ -41,5 +41,7 @@ Run all the files from the root directory. Refer to the readme of each sub-direc
 For step 1, run the following for training -
 ```bash
 python -m training.step1.train \
-  --config training/step1/configs/train.yaml
+  --config training/step1/configs/train.yaml \
+  --num-nodes [num_of_nodes] \
+  --num-gpus-per-node [num_of_gpus_per_node]
 ```
