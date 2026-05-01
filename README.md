@@ -1,5 +1,15 @@
 # Full-Duplex-Conversational-System
 
+Here is my attempt to convert an LLM to a Full Duplex Dialogue System from scratch while being GPU poor :)
+
+My approach is to break it into three steps of training -
+
+1) Step 1: Training the LLM to understand the speech tokens. I use Kyutai's mimi for tokenizing the speech.
+2) Step 2: Training the model on dialogues at utterance level without overlaps to help it understand the distribution of spoken dialogue better.
+3) Step 3: To finally convert the model to a Full-Duplex system by using time warping.
+
+Cuurently, I am in the process of training the first step.
+
 ## Data Processing
 First we convert the data into webdataset shards such that they can be used easily for preprocessing during training. In this step we convert the audio into mimi tokens, convert the text into Qwen tokens, add instructions and other meta deta. Converting to Qwen tokens is optional as we can also do it in the preprocessin step incase we use another LLM. Hence, the main function is to convert the speech data into Mimi tokens and standardize them so that they can be preprocessed easily later.
 
