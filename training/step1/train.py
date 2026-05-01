@@ -1,8 +1,10 @@
 import argparse
 import os
 from pathlib import Path
+import sys
+import traceback
 
-import lightning as L
+from lightning.fabric import Fabric
 import torch
 from lightning.fabric.loggers import TensorBoardLogger
 from lightning.fabric.plugins.environments import SLURMEnvironment
@@ -43,7 +45,7 @@ def collect_dataset_roots_for_tokenizer_check(cfg: dict) -> list[str]:
     deduped = list(dict.fromkeys(roots))
     return deduped
 
-def build_fabric(cfg: dict, num_nodes: int, num_gpus_per_node: int) -> L.Fabric:
+def build_fabric(cfg: dict, num_nodes: int, num_gpus_per_node: int) -> Fabric:
     fabric_cfg = cfg["fabric"]
     log_cfg = cfg["logging"]
 
@@ -62,7 +64,7 @@ def build_fabric(cfg: dict, num_nodes: int, num_gpus_per_node: int) -> L.Fabric:
 
     strategy = build_fsdp_strategy(fabric_cfg)
 
-    fabric = L.Fabric(
+    fabric = Fabric(
         accelerator=fabric_cfg.get("accelerator", "cuda"),
         devices=num_gpus_per_node,
         num_nodes=num_nodes,
@@ -77,12 +79,15 @@ def build_dataloaders(cfg: dict, pad_token_id: int, global_step: int, build_vali
     train_cfg = cfg["training"]
     data_cfg = cfg["data"]
 
+    max_length = int(train_cfg["max_length"])
+
     train_specs = build_train_specs_for_step(cfg, global_step)
 
     train_dataset = MixedTrainDataset(
         specs=train_specs,
         seed=int(cfg.get("seed", 42)),
         sample_shuffle=1000,
+        max_length=max_length
     )
 
     collator = PackedCollator(
@@ -103,12 +108,12 @@ def build_dataloaders(cfg: dict, pad_token_id: int, global_step: int, build_vali
         return train_loader, None
     
     val_specs = parse_eval_specs(data_cfg["val_sets"])
-    val_dataset = EvalDataset(specs=val_specs)
+    val_dataset = EvalDataset(specs=val_specs, max_length=max_length)
 
     val_loader = DataLoader(
         val_dataset,
         batch_size=int(train_cfg["per_device_val_batch_size"]),
-        num_workers=max(1, int(train_cfg.get("num_workers", 4)) // 2),
+        num_workers=1,
         pin_memory=bool(train_cfg.get("pin_memory", True)),
         prefetch_factor=int(train_cfg.get("prefetch_factor", 2)),
         collate_fn=collator,
@@ -116,13 +121,26 @@ def build_dataloaders(cfg: dict, pad_token_id: int, global_step: int, build_vali
 
     return train_loader, val_loader
 
-def maybe_resume(fabric: L.Fabric, resume_from: str | None, state: dict) -> int:
+def maybe_resume(fabric: Fabric, 
+        resume_from: str | None, 
+        state: dict, 
+        optimizer,
+        scheduler) -> int:
     if not resume_from:
         return 0
 
     fabric.load(resume_from, state)
     step = int(state["step"])
-    print_rank_zero(fabric, f"Resumed from {resume_from} at step {step}", flush=True)
+    
+    print_rank_zero(fabric, f"Resumed from {resume_from}", flush=True)
+    print_rank_zero(
+        fabric,
+        f"after resume: step={state['step']} "
+        f"lr={optimizer.param_groups[0]['lr']:.8e} "
+        f"scheduler_last_epoch={getattr(scheduler, 'last_epoch', 'NA')} "
+        f"scheduler_state={scheduler.state_dict()}",
+        flush=True,
+    )
     return step
 
 
@@ -134,9 +152,24 @@ def main(config_path: str, num_nodes: int, num_gpus_per_node: int) -> None:
     # Since we are using H100s, it has tensor cores
     torch.set_float32_matmul_precision("high") 
 
+    # Work around cuDNN SDPA backward failures on this setup.
+    torch.backends.cuda.enable_cudnn_sdp(False)
+
     fabric = build_fabric(cfg, num_nodes, num_gpus_per_node)
     fabric.launch()
     fabric.seed_everything(seed)
+
+    print_rank_zero(
+        fabric,
+        f"torch={torch.__version__} "
+        f"cuda={torch.version.cuda} "
+        f"cudnn={torch.backends.cudnn.version()} "
+        f"flash_sdp={torch.backends.cuda.flash_sdp_enabled()} "
+        f"mem_efficient_sdp={torch.backends.cuda.mem_efficient_sdp_enabled()} "
+        f"math_sdp={torch.backends.cuda.math_sdp_enabled()} "
+        f"cudnn_sdp={torch.backends.cuda.cudnn_sdp_enabled()}",
+        flush=True,
+    )
 
     ckpt_dir = ensure_dir(Path(cfg["logging"]["ckpt_dir"]) / cfg["run_name"])
 
@@ -150,7 +183,10 @@ def main(config_path: str, num_nodes: int, num_gpus_per_node: int) -> None:
     )
 
     model_cfg = dict(cfg["model"])
-    model_cfg["pretrained_name_or_path"] = shared_tokenizer_cfg["base_model"]
+    model_cfg["pretrained_name_or_path"] = model_cfg.get(
+                                                "pretrained_name_or_path",
+                                                shared_tokenizer_cfg["base_model"],
+                                            )
     model_cfg["text_vocab_size"] = int(shared_tokenizer_cfg["text_vocab_size"])
     model_cfg["num_codebooks"] = int(shared_tokenizer_cfg["num_codebooks"])
     model_cfg["speech_codebook_size"] = int(shared_tokenizer_cfg["speech_codebook_size"])
@@ -159,10 +195,13 @@ def main(config_path: str, num_nodes: int, num_gpus_per_node: int) -> None:
     print_rank_zero(fabric, "Building model...", flush=True)
     model = build_qwen_causal_lm(model_cfg)
 
+    print_rank_zero(fabric, "Compiling model...", flush=True)
+    model = torch.compile(model)
+
     print_rank_zero(fabric, "Wrapping model with Fabric...", flush=True)
     model = fabric.setup(model)
 
-    print_rank_zero(fabric, "Building and wraping optimizer/scheduler...", flush=True)
+    print_rank_zero(fabric, "Building and wrapping optimizer/scheduler...", flush=True)
     optimizer = build_adamw(model, cfg["optimizer"])
     optimizer = fabric.setup_optimizers(optimizer)
 
@@ -202,7 +241,15 @@ def main(config_path: str, num_nodes: int, num_gpus_per_node: int) -> None:
         fabric=fabric,
         resume_from=cfg.get("resume_from"),
         state=state,
+        optimizer=optimizer,
+        scheduler=scheduler,
     )
+
+    # Fix scheduler bookkeeping after resume
+    if start_step > 0:
+        scheduler.last_epoch = start_step
+        scheduler._step_count = start_step + 1
+        scheduler._last_lr = [pg["lr"] for pg in optimizer.param_groups]
 
     if fabric.is_global_zero and fabric.loggers:
         logger = fabric.loggers[0].experiment
@@ -224,26 +271,43 @@ def main(config_path: str, num_nodes: int, num_gpus_per_node: int) -> None:
         )
         train_loader = fabric.setup_dataloaders(train_loader)
         return train_loader
+    
+    val_dataset_names = [spec["name"] for spec in cfg["data"]["val_sets"]]
 
-    train(
-        fabric=fabric,
-        model=model,
-        optimizer=optimizer,
-        scheduler=scheduler,
-        train_loader=train_loader,
-        val_loader=val_loader,
-        grad_accum_steps=grad_accum_steps,
-        max_steps=int(cfg["training"]["max_steps"]),
-        grad_clip_norm=float(cfg["training"]["grad_clip_norm"]),
-        log_every_n_steps=int(cfg["training"]["log_every_n_steps"]),
-        val_every_n_steps=int(cfg["training"]["val_every_n_steps"]),
-        ckpt_every_n_steps=int(cfg["training"]["ckpt_every_n_steps"]),
-        ckpt_dir=str(ckpt_dir),
-        max_val_batches=int(cfg["training"]["max_val_batches"]),
-        start_step=start_step,
-        get_curriculum_stage_fn=lambda step: get_curriculum_stage(cfg, step),
-        rebuild_train_loader_fn=rebuild_train_loader_for_step,
-    )
+    print_rank_zero(fabric, "Starting the training process...", flush=True)
+
+    try:
+        train(
+            fabric=fabric,
+            model=model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            grad_accum_steps=grad_accum_steps,
+            max_steps=int(cfg["training"]["max_steps"]),
+            grad_clip_norm=float(cfg["training"]["grad_clip_norm"]),
+            log_every_n_steps=int(cfg["training"]["log_every_n_steps"]),
+            val_every_n_steps=int(cfg["training"]["val_every_n_steps"]),
+            ckpt_every_n_steps=int(cfg["training"]["ckpt_every_n_steps"]),
+            ckpt_dir=str(ckpt_dir),
+            max_val_batches=int(cfg["training"]["max_val_batches"]),
+            start_step=start_step,
+            get_curriculum_stage_fn=lambda step: get_curriculum_stage(cfg, step),
+            rebuild_train_loader_fn=rebuild_train_loader_for_step,
+            val_dataset_names = val_dataset_names
+        )
+    except torch.cuda.OutOfMemoryError as e:
+        print_rank_zero(fabric, f"CUDA OOM: {e}", flush=True)
+        traceback.print_exc()
+        sys.exit(1)
+    except RuntimeError as e:
+        # Some CUDA OOMs appear as RuntimeError
+        if "out of memory" in str(e).lower():
+            print_rank_zero(fabric, f"RuntimeError OOM: {e}", flush=True)
+            traceback.print_exc()
+            sys.exit(1)
+        raise
 
 
 if __name__ == "__main__":

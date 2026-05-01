@@ -1,0 +1,90 @@
+run_name: step1_full_3_eval_75000
+seed: 42
+
+model:
+  pretrained_name_or_path: /lustre/fsmisc/dataset/HuggingFace_Models/Qwen/Qwen3-8B
+  trust_remote_code: False
+  attn_implementation: sdpa
+  torch_dtype: bfloat16
+  num_codebooks: 4
+  speech_codebook_size: 2048
+  pad_to_multiple_of: 64
+  gradient_checkpointing: False
+
+training:
+  max_length: 32000
+
+fabric:
+  accelerator: cuda
+  precision: bf16-mixed
+  strategy: fsdp
+  fsdp_sharding_strategy: FULL_SHARD
+  fsdp_state_dict_type: sharded
+  fsdp_limit_all_gathers: True
+  fsdp_cpu_offload: False
+  fsdp_use_orig_params: True
+
+eval:
+  # load_mode: fabric # between direct or fabric based on whether to use a fabric checkpoint or not
+  # checkpoint_path: /lustre/fsn1/projects/rech/bgp/ucm29gh/models/full_duplex/step1/step1_full_3/step-00075000/
+  load_mode: direct
+  checkpoint_path: /lustre/fsn1/projects/rech/bgp/ucm29gh/models/full_duplex/step1_exports/step1_full_3_step75000_hf
+  device: cuda        # used only in direct mode
+  output_dir: /lustre/fsn1/projects/rech/bgp/ucm29gh/evals/full_duplex/step1/
+  mimi_ckpt: /lustre/fsn1/projects/rech/bgp/ucm29gh/huggingface/hub/models--kyutai--moshiko-pytorch-bf16/snapshots/2bfc9ae6e89079a5cc7ed2a68436010d91a3d289/tokenizer-e351c8d8-checkpoint125.safetensors
+  per_device_eval_batch_size: 1
+  num_workers: 1
+  prefetch_factor: 2
+  pin_memory: True
+
+  # generation
+  max_new_tokens: null
+  generation_buffer: 16
+
+  # output control
+  save_speech_outputs: True
+  max_samples_total: null
+  print_examples: 100
+
+  # sampling
+  do_sample: True
+  temperature: 0.6
+  top_p: 0.9
+  top_k: 50
+
+data:
+  test_sets:
+    # - name: commonvoice_test_asr
+    #   max_samples: 10
+    #   urls:
+    #     - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/commonvoice_asr/test
+
+    # - name: commonvoice_test_tts
+    #   max_samples: 10
+    #   urls:
+    #     - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/commonvoice_tts/test
+   
+    # - name: covost2_test
+    #   max_samples: 10
+    #   urls:
+    #     - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/covost2/test
+
+    - name: gigaspeech_test_asr
+      max_samples: 10
+      urls:
+        - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/gigaspeech_asr/test
+
+    - name: gigaspeech_test_tts
+      max_samples: 10
+      urls:
+        - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/gigaspeech_tts/test
+
+    - name: spoken_squad_test
+      max_samples: 10
+      urls:
+        - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/spoken_squad/dev
+
+    - name: ultrachat_200k_test
+      max_samples: 10
+      urls:
+        - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/ultrachat_200k/test

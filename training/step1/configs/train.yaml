@@ -1,117 +1,137 @@
-run_name: qwen3_8b_step1
+run_name: step1_full_3
 seed: 42
 
 model:
-  pretrained_name_or_path: /lustre/fsmisc/dataset/HuggingFace_Models/Qwen/Qwen3-8B
+  pretrained_name_or_path: /lustre/fsn1/projects/rech/bgp/ucm29gh/models/full_duplex/step1_exports/step1_full_3_step75000_hf
   trust_remote_code: False
-  attn_implementation: flash_attention_2
-  torch_dtype: bfloat16 # change in fabric as well
+  attn_implementation: sdpa
+  torch_dtype: bfloat16 # need to change in fabric's precision as well
   num_codebooks: 4
   speech_codebook_size: 2048
-  pad_to_multiple_of: 8
-  gradient_checkpointing: True
+  pad_to_multiple_of: 64
+  gradient_checkpointing: False
 
+resume_from: null
 training:
-  max_steps: 200000
-  global_batch_size: 256
-  per_device_train_batch_size: 1
+  max_steps: 100000
+  global_batch_size: 64
+  per_device_train_batch_size: 4
   per_device_val_batch_size: 1
   max_length: 32000
   grad_clip_norm: 1.0
-  log_every_n_steps: 10
+  log_every_n_steps: 200
   val_every_n_steps: 1000
-  ckpt_every_n_steps: 2000
-  max_val_batches: 200
-  num_workers: 4
+  ckpt_every_n_steps: 1000
+  max_val_batches: 10000
+  num_workers: 8
   prefetch_factor: 2
   pin_memory: True
 
 optimizer:
-  lr: 1.0e-5
+  lr: 3.0e-4
   weight_decay: 0.1
   betas: [0.9, 0.95]
   eps: 1.0e-8
 
 scheduler:
   name: cosine
-  warmup_steps: 2000
+  warmup_steps: 3000
   min_lr_ratio: 0.1
 
 fabric:
   accelerator: cuda
-  precision: bf16-mixed
+  precision: bf16-mixed 
   strategy: fsdp  # Only supports fsdp right now
   fsdp_sharding_strategy: FULL_SHARD
   fsdp_state_dict_type: sharded
   fsdp_limit_all_gathers: True
   fsdp_cpu_offload: False
   fsdp_use_orig_params: True
-  fsdp_min_num_params: 10000000
 
 logging:
-  tensor_board_dir: /lustre/fsn1/projects/rech/bgp/ucm29gh/logs/step1
-  ckpt_dir: /lustre/fsn1/projects/rech/bgp/ucm29gh/checkpoints/step1
+  tensor_board_dir: /lustre/fsn1/projects/rech/bgp/ucm29gh/tensorboard/full_duplex/step1
+  ckpt_dir: /lustre/fsn1/projects/rech/bgp/ucm29gh/models/full_duplex/step1
 
 curriculum:
   enabled: true
-  update_every_steps: 5000
+  update_every_steps: 8000
 
 data:
   train_mix:
-    - name: gigaspeech
-      start_weight: 0.35
-      end_weight: 0.3
+    - name: gigaspeech_asr
+      start_weight: 0.6
+      end_weight: 0.56
       urls:
-        - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/gigaspeech/train
+        - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/gigaspeech_asr/train
 
-    - name: commonvoice
-      start_weight: 0.25
-      end_weight: 0.15
+    # - name: gigaspeech_tts
+    #   start_weight: 0.3
+    #   end_weight: 0.28
+    #   urls:
+    #     - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/gigaspeech_tts/train
+
+    - name: commonvoice_asr
+      start_weight: 0.30
+      end_weight: 0.30
       urls:
-        - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/commonvoice/train
+        - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/commonvoice_asr/train
+
+    # - name: commonvoice_tts
+    #   start_weight: 0.15
+    #   end_weight: 0.15
+    #   urls:
+    #     - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/commonvoice_tts/train
 
     - name: covost2
-      start_weight: 0.0
-      end_weight: 0.2
+      start_weight: 0.03
+      end_weight: 0.05
       urls:
         - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/covost2/train
 
     - name: spoken_squad
-      start_weight: 0.0
-      end_weight: 0.25
+      start_weight: 0.02
+      end_weight: 0.04
       urls:
         - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/spoken_squad/train
 
     - name: ultrachat_200k
-      start_weight: 0.4
-      end_weight: 0.1
+      start_weight: 0.05
+      end_weight: 0.05
       urls:
         - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/ultrachat_200k/train
 
   val_sets:
-    - name: commonvoice_dev
-      max_samples: 1000
+    - name: commonvoice_dev_asr
+      max_samples: 100
       urls:
-        - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/commonvoice/dev
+        - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/commonvoice_asr/dev
+
+    - name: commonvoice_dev_tts
+      max_samples: 100
+      urls:
+        - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/commonvoice_tts/dev
 
     - name: covost2_dev
-      max_samples: 1000
+      max_samples: 100
       urls:
         - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/covost2/dev
 
-    - name: gigaspeech_dev
-      max_samples: 1000
+    - name: gigaspeech_dev_asr
+      max_samples: 100
       urls:
-        - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/gigaspeech/dev
+        - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/gigaspeech_asr/dev
+
+    - name: gigaspeech_dev_tts
+      max_samples: 100
+      urls:
+        - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/gigaspeech_tts/dev
 
     - name: spoken_squad_dev
-      max_samples: 1000
+      max_samples: 100
       urls:
         - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/spoken_squad/dev
 
     - name: ultrachat_200k_test
-      max_samples: 1000
+      max_samples: 100
       urls:
         - /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/ultrachat_200k/test
-
-resume_from: null

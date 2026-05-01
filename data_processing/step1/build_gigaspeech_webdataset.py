@@ -176,12 +176,25 @@ def process_gigaspeech(
 
     audio_index = build_audio_index(audio_wav_root)
 
-    sink = None
+    sinks = {}
+    worker_id_subfolder = f"{worker_id:02d}"
+
     if not dry_run_only_check:
-        shard_pattern = str(
-            out_dir / f"{size.lower()}-{task}-w{worker_id:02d}-%06d.tar"
-        )
-        sink = wds.ShardWriter(shard_pattern, maxcount=maxcount)
+        if task in ("asr", "mixed", "both"):
+            asr_dir = out_dir / "asr" / worker_id_subfolder
+            asr_dir.mkdir(parents=True, exist_ok=True)
+            asr_pattern = str(
+                asr_dir / f"{size.lower()}-asr-w{worker_id:02d}-%06d.tar"
+            )
+            sinks["asr"] = wds.ShardWriter(asr_pattern, maxcount=maxcount)
+
+        if task in ("tts", "mixed", "both"):
+            tts_dir = out_dir / "tts" / worker_id_subfolder
+            tts_dir.mkdir(parents=True, exist_ok=True)
+            tts_pattern = str(
+                tts_dir / f"{size.lower()}-tts-w{worker_id:02d}-%06d.tar"
+            )
+            sinks["tts"] = wds.ShardWriter(tts_pattern, maxcount=maxcount)
 
     num_audio_streamed = 0
     num_audio_selected_by_partition = 0
@@ -303,7 +316,7 @@ def process_gigaspeech(
                         "input_tokens": speech_tokens,
                         "target_tokens": np.asarray(text_ids, dtype=np.int32),
                     }
-                    write_sample(sink, sample_id, meta, arrays)
+                    write_sample(sinks["asr"], sample_id, meta, arrays)
                     num_samples_written += 1
                     num_asr_written += 1
 
@@ -320,7 +333,7 @@ def process_gigaspeech(
                         "input_tokens": np.asarray(text_ids, dtype=np.int32),
                         "target_tokens": speech_tokens,
                     }
-                    write_sample(sink, sample_id, meta, arrays)
+                    write_sample(sinks["tts"], sample_id, meta, arrays)
                     num_samples_written += 1
                     num_tts_written += 1
 
@@ -328,7 +341,7 @@ def process_gigaspeech(
                 num_segments_failed += 1
                 print(f"[WARN] failed on sid={seg.get('sid', 'NA')} aid={aid}: {e}")
 
-    if sink is not None:
+    for sink in sinks.values():
         sink.close()
 
     print("\n===== SUMMARY =====")

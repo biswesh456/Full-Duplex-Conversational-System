@@ -1,4 +1,6 @@
 import json
+from pathlib import Path
+from typing import Any
 
 def load_tokenizer_config_from_dataset_root(root: str | Path) -> dict[str, Any]:
     root = Path(root)

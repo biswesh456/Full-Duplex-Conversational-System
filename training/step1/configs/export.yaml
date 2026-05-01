@@ -1,0 +1,22 @@
+model:
+  pretrained_name_or_path: /lustre/fsmisc/dataset/HuggingFace_Models/Qwen/Qwen3-8B
+  trust_remote_code: False
+  attn_implementation: sdpa
+  torch_dtype: bfloat16
+  num_codebooks: 4
+  speech_codebook_size: 2048
+  pad_to_multiple_of: 64
+  gradient_checkpointing: False
+
+fabric:
+  accelerator: cuda
+  precision: bf16-mixed
+  strategy: fsdp
+  fsdp_sharding_strategy: FULL_SHARD
+  fsdp_state_dict_type: sharded
+  fsdp_limit_all_gathers: True
+  fsdp_cpu_offload: False
+  fsdp_use_orig_params: True
+
+tokenizer:
+  config_path: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_4/gigaspeech/train/tokenizer_config.json

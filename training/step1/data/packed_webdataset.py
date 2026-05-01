@@ -4,6 +4,7 @@ import random
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterator
+from functools import partial
 
 import numpy as np
 import torch
@@ -47,7 +48,7 @@ def _load_npz_bytes(blob: bytes) -> dict[str, np.ndarray]:
         return {k: data[k] for k in data.files}
 
 
-def _decode_packed_sample(sample: dict[str, Any]) -> dict[str, Any]:
+def _decode_packed_sample(sample: dict[str, Any], max_length: int = 32000) -> dict[str, Any]:
     meta = sample.get("json")
     arrays = sample.get("npz")
 
@@ -65,10 +66,26 @@ def _decode_packed_sample(sample: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(arrays, dict):
         raise ValueError("Invalid or missing npz arrays in packed sample")
 
+    input_ids = torch.from_numpy(arrays["input_ids"]).long()
+    labels = torch.from_numpy(arrays["labels"]).long()
+    attention_mask = torch.from_numpy(arrays["attention_mask"]).long()
+
+    seq_len = input_ids.size(0)
+
+    if seq_len < 2:
+        print(f"Warning: Skipping illegal sequence length {seq_len} in {meta.get('mixture_dataset', 'unknown')}")
+        return None
+
+    if seq_len > max_length:
+        print(f"Warning: Trimming illegal sequence length {seq_len} to {max_length} in {meta.get('mixture_dataset', 'unknown')}")
+        input_ids = input_ids[:max_length]
+        labels = labels[:max_length]
+        attention_mask = attention_mask[:max_length]
+
     return {
-        "input_ids": torch.from_numpy(arrays["input_ids"]).long(),
-        "labels": torch.from_numpy(arrays["labels"]).long(),
-        "attention_mask": torch.from_numpy(arrays["attention_mask"]).long(),
+        "input_ids": input_ids,
+        "labels": labels,
+        "attention_mask": attention_mask,
         "meta": meta,
     }
 
@@ -86,7 +103,13 @@ def build_wds_pipeline(
     train: bool,
     shardshuffle: bool = True,
     sample_shuffle: int = 1000,
+    max_length: int = 32000,
 ) -> Iterator[dict[str, Any]]:
+    decode_fn = partial(
+        _decode_packed_sample,
+        max_length=max_length
+    )
+
     if train:
         pipeline = wds.DataPipeline(
             wds.ResampledShards(urls),
@@ -94,15 +117,15 @@ def build_wds_pipeline(
             wds.split_by_worker,
             wds.tarfile_to_samples(),
             wds.shuffle(sample_shuffle),
-            wds.map(_decode_packed_sample),
+            wds.map(decode_fn),
+            wds.select(lambda x: x is not None),
         )
     else:
         pipeline = wds.DataPipeline(
             wds.SimpleShardList(urls),
-            wds.split_by_node,
-            wds.split_by_worker,
             wds.tarfile_to_samples(),
-            wds.map(_decode_packed_sample),
+            wds.map(decode_fn),
+            wds.select(lambda x: x is not None),
         )
 
     return iter(pipeline)
@@ -114,6 +137,7 @@ class MixedTrainDataset(IterableDataset):
         specs: list[DatasetSpec],
         seed: int = 42,
         sample_shuffle: int = 1000,
+        max_length: int = 32000
     ) -> None:
         super().__init__()
         if len(specs) == 0:
@@ -121,6 +145,7 @@ class MixedTrainDataset(IterableDataset):
         self.specs = specs
         self.seed = seed
         self.sample_shuffle = sample_shuffle
+        self.max_length = max_length
 
     def __iter__(self) -> Iterator[dict[str, Any]]:
         rng = random.Random(self.seed + torch.initial_seed()) # torch.initial_seed() is for different workers to have their own random streams.
@@ -131,6 +156,7 @@ class MixedTrainDataset(IterableDataset):
                 train=True,
                 shardshuffle=True,
                 sample_shuffle=self.sample_shuffle,
+                max_length=self.max_length,
             )
             for spec in self.specs
         ]
@@ -147,6 +173,7 @@ class MixedTrainDataset(IterableDataset):
                     train=True,
                     shardshuffle=True,
                     sample_shuffle=self.sample_shuffle,
+                    max_length=self.max_length,
                 )
                 sample = next(iterators[ds_idx])
 
@@ -156,14 +183,15 @@ class MixedTrainDataset(IterableDataset):
 
 
 class EvalDataset(IterableDataset):
-    def __init__(self, specs: list[DatasetSpec]) -> None:
+    def __init__(self, specs: list[DatasetSpec], max_length: int = 32000) -> None:
         super().__init__()
         self.specs = specs
+        self.max_length = max_length
 
     def __iter__(self) -> Iterator[dict[str, Any]]:
         for spec in self.specs:
             count = 0
-            iterator = build_wds_pipeline(urls=spec.urls, train=False, shardshuffle=False)
+            iterator = build_wds_pipeline(urls=spec.urls, train=False, shardshuffle=False, max_length=self.max_length)
 
             for sample in iterator:
                 sample["meta"] = dict(sample["meta"])

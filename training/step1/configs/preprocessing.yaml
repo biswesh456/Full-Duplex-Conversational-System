@@ -1,63 +1,93 @@
 tokenizer_name: /lustre/fsmisc/dataset/HuggingFace_Models/Qwen/Qwen3-8B
-num_codebooks: 8
+num_codebooks: 4
 speech_codebook_size: 2048
 trust_remote_code: false
 
 datasets:
-  - name: commonvoice_train
+  - name: commonvoice_train_asr
     split: train
-    urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/commonvoice_22/webdataset/codebook_{num_codebooks}/train
-    output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/commonvoice/train
+    urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/commonvoice_22/webdataset/codebook_{num_codebooks}/train/asr
+    output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/commonvoice_asr/train
 
-  - name: commonvoice_dev
+  - name: commonvoice_dev_asr
     split: dev
-    urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/commonvoice_22/webdataset/codebook_{num_codebooks}/dev
-    output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/commonvoice/dev
+    urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/commonvoice_22/webdataset/codebook_{num_codebooks}/dev/asr
+    output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/commonvoice_asr/dev
 
-  - name: commonvoice_test
+  - name: commonvoice_test_asr
     split: test
-    urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/commonvoice_22/webdataset/codebook_{num_codebooks}/test
-    output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/commonvoice/test
+    urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/commonvoice_22/webdataset/codebook_{num_codebooks}/test/asr
+    output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/commonvoice_asr/test
 
-  - name: covost2_train
+  - name: commonvoice_train_tts
     split: train
-    urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/covost2_new/webdataset/codebook_{num_codebooks}/train
-    output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/covost2/train
+    urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/commonvoice_22/webdataset/codebook_{num_codebooks}/train/tts
+    output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/commonvoice_tts/train
 
-  - name: covost2_dev
+  - name: commonvoice_dev_tts
     split: dev
-    urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/covost2_new/webdataset/codebook_{num_codebooks}/dev
-    output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/covost2/dev
+    urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/commonvoice_22/webdataset/codebook_{num_codebooks}/dev/tts
+    output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/commonvoice_tts/dev
 
-  - name: covost2
+  - name: commonvoice_test_tts
     split: test
-    urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/covost2_new/webdataset/codebook_{num_codebooks}/test
-    output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/covost2/test
+    urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/commonvoice_22/webdataset/codebook_{num_codebooks}/test/tts
+    output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/commonvoice_tts/test
+  
+  # - name: covost2_train
+  #   split: train
+  #   urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/covost2_new/webdataset/codebook_{num_codebooks}/train
+  #   output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/covost2/train
 
-  - name: gigaspeech_train
-    split: train
-    urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/gigaspeech/webdataset/codebook_{num_codebooks}/XL
-    output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/gigaspeech/train
+  # - name: covost2_dev
+  #   split: dev
+  #   urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/covost2_new/webdataset/codebook_{num_codebooks}/dev
+  #   output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/covost2/dev
 
-  - name: gigaspeech_dev
-    split: dev
-    urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/gigaspeech/webdataset/codebook_{num_codebooks}/DEV
-    output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/gigaspeech/dev
+  # - name: covost2
+  #   split: test
+  #   urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/covost2_new/webdataset/codebook_{num_codebooks}/test
+  #   output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/covost2/test
 
-  - name: gigaspeech_test
-    split: test
-    urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/gigaspeech/webdataset/codebook_{num_codebooks}/TEST
-    output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/gigaspeech/test
+  # - name: gigaspeech_train_asr
+  #   split: train
+  #   urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/gigaspeech/webdataset/codebook_{num_codebooks}/XL/asr
+  #   output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/gigaspeech_asr/train
 
-  - name: spoken_squad_train
-    split: train
-    urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/Spoken-SQuAD/webdataset/codebook_{num_codebooks}/train
-    output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/spoken_squad/train
+  # - name: gigaspeech_train_tts
+  #   split: train
+  #   urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/gigaspeech/webdataset/codebook_{num_codebooks}/XL/tts
+  #   output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/gigaspeech_tts/train
 
-  - name: spoken_squad_dev
-    split: dev
-    urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/Spoken-SQuAD/webdataset/codebook_{num_codebooks}/dev
-    output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/spoken_squad/dev
+  # - name: gigaspeech_dev_asr
+  #   split: dev
+  #   urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/gigaspeech/webdataset/codebook_{num_codebooks}/DEV/asr
+  #   output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/gigaspeech_asr/dev
+
+  # - name: gigaspeech_dev_tts
+  #   split: dev
+  #   urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/gigaspeech/webdataset/codebook_{num_codebooks}/DEV/tts
+  #   output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/gigaspeech_tts/dev
+
+  # - name: gigaspeech_test_asr
+  #   split: test
+  #   urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/gigaspeech/webdataset/codebook_{num_codebooks}/TEST/asr
+  #   output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/gigaspeech_asr/test
+
+  # - name: gigaspeech_test_tts
+  #   split: test
+  #   urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/gigaspeech/webdataset/codebook_{num_codebooks}/TEST/tts
+  #   output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/gigaspeech_tts/test
+
+  # - name: spoken_squad_train
+  #   split: train
+  #   urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/Spoken-SQuAD/webdataset/codebook_{num_codebooks}/train
+  #   output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/spoken_squad/train
+
+  # - name: spoken_squad_dev
+  #   split: dev
+  #   urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/Spoken-SQuAD/webdataset/codebook_{num_codebooks}/dev
+  #   output_urls: /lustre/fsn1/projects/rech/bgp/ucm29gh/dataset/speech_qwen_preprocessed/codebook_{num_codebooks}/spoken_squad/dev
 
   # - name: ultrachat_200k_train
   #   split: train

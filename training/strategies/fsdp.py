@@ -4,8 +4,8 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.plugins.precision import FSDPPrecision
 from lightning.fabric.strategies import FSDPStrategy
 from torch.distributed.fsdp import CPUOffload, ShardingStrategy
-from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
-
+from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
+from transformers.models.qwen3.modeling_qwen3 import Qwen3DecoderLayer
 
 def build_fsdp_strategy(fabric_cfg: dict):
     sharding_name = fabric_cfg.get("fsdp_sharding_strategy", "FULL_SHARD")
@@ -19,12 +19,13 @@ def build_fsdp_strategy(fabric_cfg: dict):
     sharding_strategy = getattr(ShardingStrategy, sharding_name)
 
     auto_wrap_policy = partial(
-        size_based_auto_wrap_policy,
-        min_num_params=min_num_params,
+        transformer_auto_wrap_policy,
+        transformer_layer_cls={Qwen3DecoderLayer},
     )
 
     return FSDPStrategy(
         auto_wrap_policy=auto_wrap_policy,
+        activation_checkpointing_policy={Qwen3DecoderLayer},
         sharding_strategy=sharding_strategy,
         state_dict_type=state_dict_type,
         cpu_offload=CPUOffload(offload_params=cpu_offload),

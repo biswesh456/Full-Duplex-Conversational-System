@@ -38,10 +38,20 @@ For step 3, run the following for preprocessing
 
 Run all the files from the root directory. Refer to the readme of each sub-directory for more information.
 
-For step 1, run the following for training -
+For step 1, we utilize curriculum learning which can be set up using the config file. Then we run the following for training -
 ```bash
 python -m training.step1.train \
   --config training/step1/configs/train.yaml \
   --num-nodes [num_of_nodes] \
   --num-gpus-per-node [num_of_gpus_per_node]
+```
+
+## Evaluation
+
+For step 1, use the eval.yaml config file to run the evaluation -
+```bash
+srun python -m training.step1.eval \
+        --config training/step1/configs/eval.yaml \
+        --num-nodes [num_of_nodes] \
+        --num-gpus-per-node [num_of_gpus_per_node]
 ```

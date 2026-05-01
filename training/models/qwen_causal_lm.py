@@ -27,12 +27,12 @@ def resize_model_for_speech_tokens(
     model,
     full_vocab_size: int,
 ) -> None:
+    full_vocab_size = ((full_vocab_size + 127) // 128) * 128  # Convert it to closest multiple of 128 to make it faster for gpus.
     old_vocab_size = model.get_input_embeddings().weight.shape[0]
     if old_vocab_size == full_vocab_size:
         return
 
     model.resize_token_embeddings(full_vocab_size)
-
     input_emb = model.get_input_embeddings().weight
     initialize_new_embeddings(input_emb, old_vocab_size=old_vocab_size)
 
@@ -41,14 +41,13 @@ def resize_model_for_speech_tokens(
         output_emb = output_emb_module.weight
         if output_emb.shape[0] == full_vocab_size:
             initialize_new_embeddings(output_emb, old_vocab_size=old_vocab_size)
-
     model.config.vocab_size = full_vocab_size
 
 
 def build_qwen_causal_lm(model_cfg: dict[str, Any]):
     pretrained_name_or_path = model_cfg["pretrained_name_or_path"]
     trust_remote_code = bool(model_cfg.get("trust_remote_code", False))
-    attn_implementation = model_cfg.get("attn_implementation", None)
+    attn_implementation = model_cfg.get("attn_implementation", 'sdpa')
     torch_dtype_name = model_cfg.get("torch_dtype", "bfloat16")
 
     if torch_dtype_name == "bfloat16":
@@ -70,7 +69,7 @@ def build_qwen_causal_lm(model_cfg: dict[str, Any]):
     model = AutoModelForCausalLM.from_pretrained(
         pretrained_name_or_path,
         config=config,
-        torch_dtype=torch_dtype,
+        dtype=torch_dtype,
         trust_remote_code=trust_remote_code,
         attn_implementation=attn_implementation,
     )
